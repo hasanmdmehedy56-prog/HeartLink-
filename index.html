@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeartLink V10 — Mobile Banking</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#fff5f8;color:#2a1720}
+.wrap{max-width:560px;margin:auto;padding:20px}.card{background:white;border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 8px 30px #0001}
+h1{margin:0 0 6px}.muted{color:#75636b}.plans{display:grid;gap:12px}.plan{border:1px solid #eadbe1;border-radius:16px;padding:15px}.btn{width:100%;padding:13px;border:0;border-radius:14px;background:#e72f73;color:#fff;font-size:16px;font-weight:700}.btn:disabled{opacity:.5}.pill{display:inline-block;padding:7px 10px;border-radius:999px;background:#f7e8ef;margin:3px}.ok{background:#e7f8ed;color:#146b36;padding:10px;border-radius:12px}.err{background:#fff0f0;color:#a11;padding:10px;border-radius:12px}
+input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:12px;margin:5px 0}
+</style></head>
+<body><div class="wrap">
+<div class="card"><h1>💗 HeartLink V10</h1><div class="muted">Premium পেমেন্ট — শুধু মোবাইল ব্যাংকিং</div>
+<div class="pill">bKash</div><div class="pill">Nagad</div><div class="pill">Rocket</div></div>
+
+<div class="card" id="loginCard">
+<h3>ডেমো লগইন</h3>
+<input id="email" placeholder="ইমেইল">
+<input id="password" type="password" placeholder="পাসওয়ার্ড">
+<button class="btn" onclick="login()">লগইন</button>
+<p class="muted">আগের HeartLink account-এর token থাকলে সেটিও ব্যবহার করতে পারো।</p>
+</div>
+
+<div class="card">
+<h3>Premium Plan</h3>
+<div id="plans" class="plans">লোড হচ্ছে…</div>
+</div>
+<div class="card"><h3>পেমেন্ট অবস্থা</h3><div id="status" class="muted">—</div></div>
+</div>
+<script>
+const API=location.origin;
+let token=localStorage.getItem("heartlink_token")||"";
+const $=id=>document.getElementById(id);
+async function api(path,opt={}){opt.headers={...(opt.headers||{}),...(token?{Authorization:"Bearer "+token}:{})};const r=await fetch(API+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Request failed");return d}
+async function login(){try{const d=await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("heartlink_token",token);$("loginCard").innerHTML="<div class='ok'>লগইন হয়েছে ✅</div>";loadPlans();loadSub()}catch(e){$("status").innerHTML="<div class='err'>"+e.message+"</div>"}}
+async function loadPlans(){try{const ps=await api("/api/premium/plans");$("plans").innerHTML=ps.map(p=>`<div class="plan"><b>${p.name}</b><div style="font-size:22px;margin:6px 0">৳${Number(p.amount).toLocaleString("bn-BD")}</div><div class="muted">${p.days} দিন</div><button class="btn" onclick="pay('${p.id}')">bKash / Nagad / Rocket দিয়ে Pay</button></div>`).join("")}catch(e){$("plans").innerHTML="<div class='err'>প্রথমে লগইন করো।</div>"}}
+async function pay(plan){try{if(!token)throw new Error("আগে লগইন করো");$("status").textContent="Payment session তৈরি হচ্ছে…";const d=await api("/api/payment/sslcommerz/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan})});$("status").innerHTML="<div class='ok'>Checkout খুলছি…</div>";location.href=d.redirect_url}catch(e){$("status").innerHTML="<div class='err'>"+e.message+"</div>"}}
+async function loadSub(){try{const d=await api("/api/subscription");$("status").innerHTML=d.status==="active"?`<div class='ok'>Premium Active ✅<br>শেষ হবে: ${new Date(d.ends_at).toLocaleString("bn-BD")}</div>`:"এখনও Premium active নেই।"}catch(e){}}
+loadPlans(); if(token)loadSub();
+if(new URLSearchParams(location.search).get("payment")==="success") setTimeout(loadSub,500);
+</script></body></html>
